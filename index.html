@@ -8,6 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1460,8 +1461,20 @@ Responde SOLO con JSON valido.`;
             // Find location from the contact line (line containing email)
             const contactLine = lines.find(l => l.includes('@') && l.includes('linkedin'));
             if (contactLine) {
-                const locMatch = contactLine.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2})/);
-                if (locMatch) cv.contact.location = locMatch[1].trim();
+                // Anchor between phone number and linkedin to avoid false matches like "Joins, CT"
+                const locMatch = contactLine.match(/\d{4}\s+([\w\s]+,\s*[A-Z]{2})\s+linkedin/);
+                if (locMatch) {
+                    cv.contact.location = locMatch[1].trim();
+                } else {
+                    // Fallback: look for City, ST pattern but exclude known false positives
+                    const fallback = contactLine.match(/\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2})\b/g);
+                    if (fallback) {
+                        // Pick the one that looks most like a city (not "Joins, CT" etc)
+                        const knownFalse = ['Joins', 'Tables', 'Functions', 'Queries'];
+                        const valid = fallback.filter(m => !knownFalse.some(f => m.startsWith(f)));
+                        if (valid.length > 0) cv.contact.location = valid[0].trim();
+                    }
+                }
             }
 
             // Split into sections by header keywords
@@ -1777,42 +1790,34 @@ Responde SOLO con JSON valido.`;
                 return;
             }
 
-            // Use browser print-to-PDF via an iframe for pixel-perfect output
             const cv = parseCV(window.modifiedCV);
             const html = renderCVHTML(cv);
 
-            const printCSS = `
-                @page { size: A4; margin: 20mm 18mm 18mm 18mm; }
-                body { margin: 0; padding: 0; }
-                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            `;
+            // Create a temporary container for html2pdf
+            const container = document.createElement('div');
+            container.innerHTML = html;
+            container.style.width = '800px';
+            container.style.background = '#fff';
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            document.body.appendChild(container);
 
-            const fullHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${printCSS}</style></head><body>${html}</body></html>`;
+            const filename = `CV_${currentJobAnalysis.jobInfo.company || 'Modified'}_${new Date().toISOString().split('T')[0]}.pdf`;
 
-            const printFrame = document.createElement('iframe');
-            printFrame.style.position = 'fixed';
-            printFrame.style.right = '0';
-            printFrame.style.bottom = '0';
-            printFrame.style.width = '0';
-            printFrame.style.height = '0';
-            printFrame.style.border = 'none';
-            document.body.appendChild(printFrame);
-
-            printFrame.contentDocument.open();
-            printFrame.contentDocument.write(fullHTML);
-            printFrame.contentDocument.close();
-
-            printFrame.contentWindow.onafterprint = () => {
-                document.body.removeChild(printFrame);
-            };
-
-            setTimeout(() => {
-                printFrame.contentWindow.print();
-                // Fallback cleanup after 60s
-                setTimeout(() => {
-                    if (printFrame.parentNode) document.body.removeChild(printFrame);
-                }, 60000);
-            }, 500);
+            html2pdf().set({
+                margin: [10, 12, 10, 12],
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            }).from(container).save().then(() => {
+                document.body.removeChild(container);
+            }).catch(err => {
+                document.body.removeChild(container);
+                showError('Error generating PDF: ' + err.message);
+            });
 
             addToPipeline();
         }
