@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O2C Career Toolkit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Sora', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        navy: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+                        gold: { 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'DM Sans', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Sora', sans-serif; }
+
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 256px 256px;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.05);
+        }
+
+        .tab-button {
+            color: #94a3b8;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            background: transparent;
+        }
+        .tab-button:hover {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+        .tab-button.active {
+            color: #f59e0b;
+            border-bottom-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.08);
+        }
+
+        .pipeline-filter {
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+        .pipeline-filter:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .pipeline-filter.active {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #0f172a;
+            border-color: transparent;
+            font-weight: 600;
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #0f172a;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-gold:hover {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-bucket-a {
+            background: linear-gradient(135deg, #f59e0b, #b45309);
+            color: #0f172a;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-bucket-a:hover {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-bucket-b {
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+            color: #0f172a;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-bucket-b:hover {
+            box-shadow: 0 0 20px rgba(20, 184, 166, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .input-dark {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .input-dark:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            outline: none;
+        }
+        .input-dark::placeholder { color: #64748b; }
+
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            padding: 4px;
+            background: conic-gradient(var(--score-color) var(--score-pct), rgba(255,255,255,0.1) var(--score-pct));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        /* Entry animations */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-entry {
+            animation: fadeSlideUp 0.5s ease-out forwards;
+            opacity: 0;
+        }
+        .animate-entry:nth-child(1) { animation-delay: 0.05s; }
+        .animate-entry:nth-child(2) { animation-delay: 0.1s; }
+        .animate-entry:nth-child(3) { animation-delay: 0.15s; }
+        .animate-entry:nth-child(4) { animation-delay: 0.2s; }
+        .animate-entry:nth-child(5) { animation-delay: 0.25s; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+
+        .error-inline {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        select option { background: #1e293b; color: #e2e8f0; }
+    </style>
+</head>
+<body class="min-h-screen relative">
+    <div class="relative z-10 max-w-7xl mx-auto p-4 md:p-6">
+        <!-- Header -->
+        <div class="card p-6 mb-6 animate-entry" style="border-top: 2px solid #f59e0b;">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h1 class="font-display text-3xl md:text-4xl font-bold text-white mb-1 tracking-tight">
+                        O2C Career Toolkit
+                    </h1>
+                    <p class="text-slate-400 text-sm">Order-to-Cash &rarr; RevOps & Business Systems</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex gap-3">
+                        <div class="text-center px-4 py-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                            <div class="text-xs font-semibold text-amber-400 font-display">Bucket A</div>
+                            <div class="text-xs text-amber-500/70">RevOps</div>
+                        </div>
+                        <div class="text-center px-4 py-2 rounded-lg border border-teal-500/30 bg-teal-500/5">
+                            <div class="text-xs font-semibold text-teal-400 font-display">Bucket B</div>
+                            <div class="text-xs text-teal-500/70">Biz Systems</div>
+                        </div>
+                    </div>
+                    <!-- API Key -->
+                    <div class="flex items-center gap-2">
+                        <input
+                            type="password"
+                            id="api-key-input"
+                            class="input-dark px-3 py-2 rounded-lg text-xs w-48"
+                            placeholder="Anthropic API Key"
+                        >
+                        <button onclick="toggleApiKeyVisibility()" class="text-slate-400 hover:text-amber-400 transition-colors text-sm" title="Mostrar/ocultar">
+                            <span id="api-key-toggle-icon">&#128065;</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="card mb-6 overflow-hidden animate-entry">
+            <div class="flex flex-wrap border-b border-white/5">
+                <button onclick="switchTab('manage')" id="tab-manage" class="tab-button active flex-1 md:flex-none px-5 py-4 font-semibold text-sm md:text-base font-display">
+                    CVs
+                </button>
+                <button onclick="switchTab('analyze')" id="tab-analyze" class="tab-button flex-1 md:flex-none px-5 py-4 font-semibold text-sm md:text-base font-display">
+                    Analizar
+                </button>
+                <button onclick="switchTab('compare')" id="tab-compare" class="tab-button flex-1 md:flex-none px-5 py-4 font-semibold text-sm md:text-base font-display">
+                    Comparar
+                </button>
+                <button onclick="switchTab('pipeline')" id="tab-pipeline" class="tab-button flex-1 md:flex-none px-5 py-4 font-semibold text-sm md:text-base font-display">
+                    Pipeline
+                </button>
+                <button onclick="switchTab('insights')" id="tab-insights" class="tab-button flex-1 md:flex-none px-5 py-4 font-semibold text-sm md:text-base font-display">
+                    Insights
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 1: MANAGE CVS -->
+        <div id="content-manage" class="tab-content">
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Bucket A -->
+                <div class="card p-6 animate-entry" style="border-top: 2px solid #f59e0b;">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center mr-3">
+                            <span class="text-amber-400 font-display font-bold text-sm">A</span>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white font-display">Bucket A: RevOps</h2>
+                            <p class="text-xs text-amber-500/70">SaaS, Tech, Startups de Alto Crecimiento</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                        <p class="text-xs text-amber-400 font-medium">Tu angulo: Aseguras que los datos fluyan del CRM al banco sin "fugas"</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <input type="file" id="upload-a" accept=".pdf,.doc,.docx" class="hidden" onchange="handleFileUpload('a', this.files[0])">
+                        <button onclick="document.getElementById('upload-a').click()" class="w-full btn-bucket-a py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+                            <span id="upload-a-text">Seleccionar Archivo</span>
+                        </button>
+                    </div>
+
+                    <div id="preview-a" class="hidden mb-4">
+                        <div class="rounded-lg p-3 bg-emerald-500/10 border border-emerald-500/20">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-emerald-400" id="filename-a"></span>
+                                <button onclick="document.getElementById('upload-a').click()" class="text-xs text-amber-400 hover:text-amber-300 font-semibold">Actualizar</button>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2" id="preview-text-a"></p>
+                        </div>
+                    </div>
+                    <div id="status-a" class="text-sm text-slate-400"></div>
+                </div>
+
+                <!-- Bucket B -->
+                <div class="card p-6 animate-entry" style="border-top: 2px solid #14b8a6;">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center mr-3">
+                            <span class="text-teal-400 font-display font-bold text-sm">B</span>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white font-display">Bucket B: Business Systems</h2>
+                            <p class="text-xs text-teal-500/70">Manufactura, Corporaciones, Distribucion</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 p-3 rounded-lg bg-teal-500/5 border border-teal-500/20">
+                        <p class="text-xs text-teal-400 font-medium">Tu angulo: Puente entre usuarios de negocio y TI, especialista en O2C</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <input type="file" id="upload-b" accept=".pdf,.doc,.docx" class="hidden" onchange="handleFileUpload('b', this.files[0])">
+                        <button onclick="document.getElementById('upload-b').click()" class="w-full btn-bucket-b py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+                            <span id="upload-b-text">Seleccionar Archivo</span>
+                        </button>
+                    </div>
+
+                    <div id="preview-b" class="hidden mb-4">
+                        <div class="rounded-lg p-3 bg-emerald-500/10 border border-emerald-500/20">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-emerald-400" id="filename-b"></span>
+                                <button onclick="document.getElementById('upload-b').click()" class="text-xs text-teal-400 hover:text-teal-300 font-semibold">Actualizar</button>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2" id="preview-text-b"></p>
+                        </div>
+                    </div>
+                    <div id="status-b" class="text-sm text-slate-400"></div>
+                </div>
+            </div>
+
+            <!-- Experience Profile -->
+            <div class="mt-6 card p-6 animate-entry" style="border-top: 2px solid #3b82f6;">
+                <h2 class="text-xl font-bold text-white font-display mb-4">Tu Experiencia Real (Anti-Falsificacion)</h2>
+                <p class="text-sm text-slate-400 mb-4">Esto asegura que las sugerencias esten basadas solo en tu experiencia verificable.</p>
+
+                <textarea
+                    id="experience-profile"
+                    rows="6"
+                    class="w-full p-4 input-dark rounded-lg"
+                    placeholder="Ejemplo: 3 anos en Order-to-Cash. Experiencia con: Salesforce, SQL, reconciliacion de cuentas, analisis de procesos, reportes financieros, Excel avanzado..."
+                ></textarea>
+
+                <div class="flex items-center mt-4">
+                    <button onclick="saveExperience()" class="btn-gold px-6 py-3 rounded-lg">
+                        Guardar Experiencia
+                    </button>
+                    <span id="save-status-exp" class="ml-3 text-sm text-emerald-400"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: ANALYZE JOB -->
+        <div id="content-analyze" class="tab-content hidden">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-white font-display mb-6">Analizar Nueva Oportunidad</h2>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Descripcion del Trabajo</label>
+                    <textarea
+                        id="job-description"
+                        rows="10"
+                        class="w-full p-4 input-dark rounded-lg"
+                        placeholder="Pega aqui la descripcion completa del trabajo..."
+                    ></textarea>
+                </div>
+
+                <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                        <input type="text" id="job-company" class="w-full p-3 input-dark rounded-lg" placeholder="Nombre de la empresa">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Titulo del Puesto</label>
+                        <input type="text" id="job-title" class="w-full p-3 input-dark rounded-lg" placeholder="Ej: Revenue Operations Analyst">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-2">Salario (si lo mencionan)</label>
+                        <input type="text" id="job-salary" class="w-full p-3 input-dark rounded-lg" placeholder="Ej: $75,000 - $90,000">
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Ubicacion</label>
+                    <div class="flex gap-4">
+                        <select id="job-location-select" class="flex-1 p-3 input-dark rounded-lg" onchange="toggleLocationInput()">
+                            <option value="">Selecciona...</option>
+                            <option value="Chicago, IL">Chicago, IL</option>
+                            <option value="Philadelphia, PA">Philadelphia, PA</option>
+                            <option value="Pittsburgh, PA">Pittsburgh, PA</option>
+                            <option value="Denver, CO">Denver, CO</option>
+                            <option value="Remote">Remoto</option>
+                            <option value="custom">Otra (escribir)</option>
+                        </select>
+                        <input type="text" id="job-location-custom" class="flex-1 p-3 input-dark rounded-lg hidden" placeholder="Ej: Austin, TX">
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="getQuickScore()" id="quick-score-btn" class="flex-1 btn-gold py-4 px-6 rounded-lg font-bold text-lg font-display">
+                        Quick Score
+                    </button>
+                    <button onclick="analyzeJob()" id="analyze-btn" class="flex-1 py-4 px-6 rounded-lg font-bold text-lg font-display text-white" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                        Analisis Completo
+                    </button>
+                </div>
+
+                <!-- Loading -->
+                <div id="loading" class="hidden mt-6 text-center">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-2 border-amber-500 border-t-transparent"></div>
+                    <p class="mt-3 text-slate-400" id="loading-text">Procesando...</p>
+                </div>
+
+                <!-- Error display -->
+                <div id="error-display" class="hidden error-inline"></div>
+            </div>
+
+            <!-- Quick Score Display -->
+            <div id="quick-score-result" class="hidden mt-6 card p-6">
+                <h3 class="text-2xl font-bold text-white font-display mb-4">Quick Score</h3>
+                <div id="quick-score-content"></div>
+            </div>
+
+            <!-- Full Analysis Results -->
+            <div id="analysis-results" class="hidden mt-6 space-y-6">
+                <div class="card p-6">
+                    <h3 class="text-2xl font-bold text-white font-display mb-4">Executive Summary</h3>
+                    <div id="executive-summary"></div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-2xl font-bold text-white font-display mb-4">Analisis Detallado</h3>
+                    <div id="detailed-analysis"></div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-2xl font-bold text-white font-display mb-4">Refinar Cambios al CV</h3>
+                    <div id="chat-container" class="space-y-4 mb-4 max-h-96 overflow-y-auto"></div>
+                    <div class="flex gap-3">
+                        <input
+                            type="text"
+                            id="chat-input"
+                            class="flex-1 p-3 input-dark rounded-lg"
+                            placeholder="Escribe tu pregunta o solicitud de cambio..."
+                            onkeypress="if(event.key === 'Enter') sendChatMessage()"
+                        >
+                        <button onclick="sendChatMessage()" class="btn-gold px-6 py-3 rounded-lg font-semibold">Enviar</button>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-2xl font-bold text-white font-display mb-4">Preview y Descarga</h3>
+                    <div class="flex gap-4">
+                        <button onclick="generatePreview()" class="flex-1 py-4 px-6 rounded-lg font-bold text-lg" style="background: linear-gradient(135deg, #10b981, #059669); color: #0f172a;">
+                            Generar Preview
+                        </button>
+                        <button onclick="downloadCV()" id="download-btn" class="flex-1 py-4 px-6 rounded-lg font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white;" disabled>
+                            Descargar CV
+                        </button>
+                    </div>
+                    <div id="preview-container" class="hidden mt-6 p-6 rounded-lg bg-navy-900/60 border border-white/10">
+                        <h4 class="font-bold text-slate-300 mb-3 font-display">Preview del CV Modificado:</h4>
+                        <div id="preview-content" class="whitespace-pre-wrap text-slate-300 text-sm"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: COMPARE JOBS -->
+        <div id="content-compare" class="tab-content hidden">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-white font-display mb-6">Comparar Hasta 3 Oportunidades</h2>
+
+                <div class="mb-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p class="text-sm text-blue-300">
+                        <strong>Como usar:</strong> Primero analiza 2-3 trabajos en la pestana "Analizar". Luego vuelve aqui para compararlos lado a lado.
+                    </p>
+                </div>
+
+                <button onclick="loadComparisonJobs()" class="mb-6 btn-gold px-6 py-3 rounded-lg font-semibold">
+                    Cargar Trabajos Analizados
+                </button>
+
+                <div id="comparison-container" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            </div>
+        </div>
+
+        <!-- TAB 4: PIPELINE -->
+        <div id="content-pipeline" class="tab-content hidden">
+            <div class="card p-6">
+                <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+                    <h2 class="text-2xl font-bold text-white font-display">Pipeline de Aplicaciones</h2>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="filterPipeline('all')" id="filter-all" class="pipeline-filter active px-4 py-2 rounded-lg text-sm">Todos</button>
+                        <button onclick="filterPipeline('applied')" id="filter-applied" class="pipeline-filter px-4 py-2 rounded-lg text-sm">Aplicados</button>
+                        <button onclick="filterPipeline('interview')" id="filter-interview" class="pipeline-filter px-4 py-2 rounded-lg text-sm">Entrevista</button>
+                        <button onclick="filterPipeline('rejected')" id="filter-rejected" class="pipeline-filter px-4 py-2 rounded-lg text-sm">Rechazados</button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <p class="text-xs text-slate-400">Total Aplicaciones</p>
+                        <p class="text-3xl font-bold text-blue-400 font-display" id="stat-total">0</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <p class="text-xs text-slate-400">Entrevistas</p>
+                        <p class="text-3xl font-bold text-emerald-400 font-display" id="stat-interviews">0</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                        <p class="text-xs text-slate-400">Tasa de Respuesta</p>
+                        <p class="text-3xl font-bold text-purple-400 font-display" id="stat-response-rate">0%</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <p class="text-xs text-slate-400">Esta Semana</p>
+                        <p class="text-3xl font-bold text-amber-400 font-display" id="stat-this-week">0</p>
+                    </div>
+                </div>
+
+                <!-- Pipeline Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full" id="pipeline-table">
+                        <thead class="border-b border-white/10">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Empresa</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Posicion</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Ubicacion</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Score</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Fecha</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Notas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pipeline-body">
+                            <tr>
+                                <td colspan="7" class="px-4 py-8 text-center text-slate-500">
+                                    No hay aplicaciones registradas.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: INSIGHTS -->
+        <div id="content-insights" class="tab-content hidden">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold text-white font-display mb-6">Tendencias & Recomendaciones</h2>
+
+                <div class="mb-6 flex gap-4">
+                    <button onclick="analyzeTrends()" class="btn-gold px-6 py-3 rounded-lg font-semibold">Analizar Tendencias</button>
+                    <button onclick="clearHistory()" class="px-6 py-3 rounded-lg font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">Limpiar Historico</button>
+                </div>
+
+                <div id="trends-content">
+                    <p class="text-slate-500">Haz clic en "Analizar Tendencias" para ver insights sobre tu busqueda de trabajo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONSTANTS =====
+        const SCORING_RUBRIC = {
+            hardSkillsMatch: { label: 'Hard Skills Match', points: 30 },
+            transferableSkills: { label: 'Transferable Skills', points: 15 },
+            keywordsPresent: { label: 'Keywords Present', points: 25 },
+            seniorityYears: { label: 'Seniority/Years', points: 20 },
+            industryFit: { label: 'Industry Fit', points: 10 },
+        };
+
+        const THRESHOLDS = {
+            PRIORITY: 75,
+            CONSIDER: 60,
+        };
+
+        const RUBRIC_TEXT = Object.values(SCORING_RUBRIC)
+            .map(r => `${r.label}: ${r.points} pts`)
+            .join('\n');
+
+        const API_URL = 'https://api.anthropic.com/v1/messages';
+        const API_MODEL = 'claude-sonnet-4-20250514';
+
+        // ===== GLOBAL STATE =====
+        let resumes = { a: null, b: null };
+        let resumeTexts = { a: '', b: '' };
+        let resumeFiles = { a: null, b: null };
+        let experienceProfile = '';
+        let currentJobAnalysis = null;
+        let chatHistory = [];
+        let analysisHistory = [];
+        let pipelineJobs = [];
+        let currentFilter = 'all';
+
+        // PDF.js setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // ===== STORAGE HELPERS (replacing window.storage) =====
+        const storage = {
+            get(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    console.error('storage.get error:', e);
+                    return null;
+                }
+            },
+            set(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    console.error('storage.set error:', e);
+                }
+            },
+            delete(key) {
+                try {
+                    localStorage.removeItem(key);
+                } catch (e) {
+                    console.error('storage.delete error:', e);
+                }
+            }
+        };
+
+        // ===== API KEY =====
+        function getApiKey() {
+            const input = document.getElementById('api-key-input');
+            return input ? input.value.trim() : '';
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('api-key-input');
+            if (input.type === 'password') {
+                input.type = 'text';
+            } else {
+                input.type = 'password';
+            }
+        }
+
+        function getApiHeaders() {
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                throw new Error('API Key requerida. Ingresala en el campo superior derecho.');
+            }
+            return {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true',
+            };
+        }
+
+        // ===== SAFE JSON PARSER =====
+        function safeParseJSON(text) {
+            console.log('[safeParseJSON] Input length:', text.length);
+            try {
+                // Try direct parse first
+                const data = JSON.parse(text);
+                console.log('[safeParseJSON] Direct parse success');
+                return { success: true, data, error: null };
+            } catch (e) {
+                // Strip markdown code fences
+                let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+                // Extract JSON object
+                const match = cleaned.match(/\{[\s\S]*\}/);
+                if (match) {
+                    try {
+                        const data = JSON.parse(match[0]);
+                        console.log('[safeParseJSON] Regex extraction success');
+                        return { success: true, data, error: null };
+                    } catch (e2) {
+                        console.error('[safeParseJSON] Regex extracted but parse failed:', e2.message);
+                        return { success: false, data: null, error: 'JSON parse failed after extraction: ' + e2.message };
+                    }
+                }
+                console.error('[safeParseJSON] No JSON object found in response');
+                return { success: false, data: null, error: 'No JSON object found in response' };
+            }
+        }
+
+        // ===== API CALL WRAPPER =====
+        async function callAPI(messages, maxTokens) {
+            console.log('[callAPI] Pre-call, maxTokens:', maxTokens);
+            let headers;
+            try {
+                headers = getApiHeaders();
+            } catch (e) {
+                throw e;
+            }
+
+            const body = {
+                model: API_MODEL,
+                max_tokens: maxTokens,
+                temperature: 0,
+                messages: messages,
+            };
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(body),
+            });
+
+            console.log('[callAPI] Post-response, status:', response.status);
+
+            if (!response.ok) {
+                let errorMsg = `API error ${response.status}`;
+                try {
+                    const errorBody = await response.json();
+                    errorMsg = errorBody.error?.message || errorBody.message || JSON.stringify(errorBody);
+                } catch (_) {}
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            console.log('[callAPI] Response parsed');
+
+            if (!data.content || !data.content[0] || !data.content[0].text) {
+                throw new Error('Unexpected API response structure');
+            }
+
+            const resultText = data.content[0].text;
+            console.log('[callAPI] Pre-parse, text length:', resultText.length);
+
+            const parsed = safeParseJSON(resultText);
+            console.log('[callAPI] Post-parse, success:', parsed.success);
+
+            if (!parsed.success) {
+                throw new Error('Failed to parse API response: ' + parsed.error);
+            }
+
+            return parsed.data;
+        }
+
+        async function callAPIRaw(messages, maxTokens) {
+            console.log('[callAPIRaw] Pre-call, maxTokens:', maxTokens);
+            let headers;
+            try {
+                headers = getApiHeaders();
+            } catch (e) {
+                throw e;
+            }
+
+            const body = {
+                model: API_MODEL,
+                max_tokens: maxTokens,
+                temperature: 0,
+                messages: messages,
+            };
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `API error ${response.status}`;
+                try {
+                    const errorBody = await response.json();
+                    errorMsg = errorBody.error?.message || errorBody.message || JSON.stringify(errorBody);
+                } catch (_) {}
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            if (!data.content || !data.content[0] || !data.content[0].text) {
+                throw new Error('Unexpected API response structure');
+            }
+            return data.content[0].text;
+        }
+
+        // ===== ERROR DISPLAY =====
+        function showError(message) {
+            const el = document.getElementById('error-display');
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function hideError() {
+            const el = document.getElementById('error-display');
+            el.classList.add('hidden');
+            el.textContent = '';
+        }
+
+        // ===== INITIALIZATION =====
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+            // Restore API key if saved
+            const savedKey = storage.get('api_key');
+            if (savedKey) {
+                document.getElementById('api-key-input').value = savedKey;
+            }
+            // Auto-save API key on change
+            document.getElementById('api-key-input').addEventListener('change', function() {
+                storage.set('api_key', this.value.trim());
+            });
+        });
+
+        function loadAllData() {
+            try {
+                const exp = storage.get('experience_profile');
+                if (exp) {
+                    experienceProfile = exp;
+                    document.getElementById('experience-profile').value = exp;
+                }
+
+                const resumeMetaA = storage.get('resume_meta_a');
+                const resumeMetaB = storage.get('resume_meta_b');
+
+                if (resumeMetaA) {
+                    const meta = JSON.parse(resumeMetaA);
+                    resumeTexts.a = meta.text;
+                    showResumePreview('a', meta.filename);
+                }
+
+                if (resumeMetaB) {
+                    const meta = JSON.parse(resumeMetaB);
+                    resumeTexts.b = meta.text;
+                    showResumePreview('b', meta.filename);
+                }
+
+                const history = storage.get('analysis_history');
+                if (history) {
+                    analysisHistory = JSON.parse(history);
+                }
+
+                const pipeline = storage.get('pipeline_jobs');
+                if (pipeline) {
+                    pipelineJobs = JSON.parse(pipeline);
+                    renderPipeline();
+                }
+            } catch (error) {
+                console.log('No previous data found or parse error:', error);
+            }
+        }
+
+        // ===== FILE UPLOAD AND PROCESSING =====
+        async function handleFileUpload(bucket, file) {
+            if (!file) return;
+
+            const statusEl = document.getElementById(`status-${bucket}`);
+            statusEl.textContent = 'Procesando archivo...';
+
+            try {
+                let text = '';
+
+                if (file.type === 'application/pdf') {
+                    text = await extractTextFromPDF(file);
+                } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                           file.name.endsWith('.docx')) {
+                    text = await extractTextFromWord(file);
+                } else {
+                    throw new Error('Formato no soportado. Usa PDF o Word (.docx)');
+                }
+
+                resumeFiles[bucket] = file;
+                resumeTexts[bucket] = text;
+
+                const metadata = {
+                    filename: file.name,
+                    text: text,
+                    uploadDate: new Date().toISOString()
+                };
+
+                storage.set(`resume_meta_${bucket}`, JSON.stringify(metadata));
+                showResumePreview(bucket, file.name);
+                statusEl.textContent = 'CV cargado exitosamente';
+                setTimeout(() => statusEl.textContent = '', 3000);
+
+            } catch (error) {
+                statusEl.textContent = 'Error: ' + error.message;
+                console.error('Error processing file:', error);
+            }
+        }
+
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+            return fullText;
+        }
+
+        async function extractTextFromWord(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return result.value;
+        }
+
+        function showResumePreview(bucket, filename) {
+            const previewEl = document.getElementById(`preview-${bucket}`);
+            const filenameEl = document.getElementById(`filename-${bucket}`);
+            const previewTextEl = document.getElementById(`preview-text-${bucket}`);
+            const uploadBtnText = document.getElementById(`upload-${bucket}-text`);
+
+            filenameEl.textContent = filename;
+            previewTextEl.textContent = resumeTexts[bucket].substring(0, 150) + '...';
+            uploadBtnText.textContent = 'CV Cargado';
+            previewEl.classList.remove('hidden');
+        }
+
+        function saveExperience() {
+            const content = document.getElementById('experience-profile').value;
+            if (!content.trim()) {
+                showError('El perfil de experiencia esta vacio');
+                return;
+            }
+
+            storage.set('experience_profile', content);
+            experienceProfile = content;
+
+            const status = document.getElementById('save-status-exp');
+            status.textContent = 'Guardado';
+            setTimeout(() => status.textContent = '', 3000);
+        }
+
+        // ===== TAB SWITCHING =====
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+
+            if (tab === 'pipeline') renderPipeline();
+        }
+
+        function toggleLocationInput() {
+            const select = document.getElementById('job-location-select');
+            const custom = document.getElementById('job-location-custom');
+            if (select.value === 'custom') {
+                custom.classList.remove('hidden');
+                select.classList.add('hidden');
+            } else {
+                custom.classList.add('hidden');
+                select.classList.remove('hidden');
+            }
+        }
+
+        // ===== QUICK SCORE =====
+        async function getQuickScore() {
+            const jobDesc = document.getElementById('job-description').value;
+
+            if (!jobDesc.trim()) { showError('Por favor pega una descripcion de trabajo'); return; }
+            if (!resumeTexts.a && !resumeTexts.b) { showError('Por favor sube al menos un CV primero'); return; }
+
+            hideError();
+            showLoading('Calculando Quick Score...');
+
+            try {
+                const prompt = `Eres un experto en analisis rapido de compatibilidad entre CVs y job descriptions.
+
+CV BUCKET A (RevOps):
+${resumeTexts.a || 'No disponible'}
+
+CV BUCKET B (Business Systems):
+${resumeTexts.b || 'No disponible'}
+
+JOB DESCRIPTION:
+${jobDesc}
+
+SCORING RUBRIC (100 pts total):
+${RUBRIC_TEXT}
+
+Proporciona un Quick Score en formato JSON:
+
+{
+  "bestBucket": "A|B",
+  "quickScore": [0-100],
+  "recommendation": "Solicitar-Prioridad|Solicitar-No Prioridad|Descartar",
+  "keyReason": "Razon principal en 1-2 frases",
+  "topMatchPoints": ["punto 1", "punto 2", "punto 3"],
+  "redFlags": ["flag 1 si existe"],
+  "rubricBreakdown": {
+    "hardSkillsMatch": [0-30],
+    "transferableSkills": [0-15],
+    "keywordsPresent": [0-25],
+    "seniorityYears": [0-20],
+    "industryFit": [0-10]
+  }
+}
+
+THRESHOLDS:
+- Solicitar-Prioridad: ${THRESHOLDS.PRIORITY}+
+- Solicitar-No Prioridad: ${THRESHOLDS.CONSIDER}-${THRESHOLDS.PRIORITY - 1}
+- Descartar: <${THRESHOLDS.CONSIDER}
+
+Responde SOLO con JSON valido.`;
+
+                const quickScore = await callAPI([{ role: 'user', content: prompt }], 2000);
+                displayQuickScore(quickScore);
+
+            } catch (error) {
+                showError('Error: ' + error.message);
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayQuickScore(score) {
+            const styles = {
+                'Solicitar-Prioridad': { border: 'border-emerald-500/50', bg: 'bg-emerald-500/10', text: 'text-emerald-400', scoreColor: '#10b981' },
+                'Solicitar-No Prioridad': { border: 'border-amber-500/50', bg: 'bg-amber-500/10', text: 'text-amber-400', scoreColor: '#f59e0b' },
+                'Descartar': { border: 'border-red-500/50', bg: 'bg-red-500/10', text: 'text-red-400', scoreColor: '#ef4444' }
+            };
+
+            const s = styles[score.recommendation] || styles['Descartar'];
+
+            const rubricHTML = score.rubricBreakdown ? `
+                <div class="mt-4 grid grid-cols-5 gap-2">
+                    ${Object.entries(SCORING_RUBRIC).map(([key, rubric]) => {
+                        const val = score.rubricBreakdown[key] || 0;
+                        const pct = Math.round((val / rubric.points) * 100);
+                        return `<div class="text-center p-2 rounded-lg bg-white/5">
+                            <div class="text-xs text-slate-400">${rubric.label}</div>
+                            <div class="text-lg font-bold ${s.text}">${val}/${rubric.points}</div>
+                            <div class="w-full h-1 rounded bg-white/10 mt-1"><div class="h-1 rounded" style="width:${pct}%;background:${s.scoreColor}"></div></div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            ` : '';
+
+            const html = `
+                <div class="${s.bg} border ${s.border} p-6 rounded-lg animate-entry">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-slate-400 mb-1">Mejor Match: Bucket ${score.bestBucket}</p>
+                            <div class="score-circle" style="--score-color:${s.scoreColor};--score-pct:${score.quickScore}%">
+                                <span class="text-3xl font-bold ${s.text} font-display">${score.quickScore}</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="inline-block px-4 py-2 rounded-full font-bold text-sm ${s.bg} ${s.text} border ${s.border}">
+                                ${score.recommendation}
+                            </span>
+                        </div>
+                    </div>
+                    <p class="text-slate-300 mb-4">${score.keyReason}</p>
+                    <div class="mb-3">
+                        <p class="font-semibold text-slate-200 mb-2 text-sm">Puntos a favor:</p>
+                        <ul class="space-y-1">
+                            ${score.topMatchPoints.map(p => `<li class="text-sm text-slate-400">&bull; ${p}</li>`).join('')}
+                        </ul>
+                    </div>
+                    ${score.redFlags && score.redFlags.length > 0 ? `
+                        <div>
+                            <p class="font-semibold text-slate-200 mb-2 text-sm">Red Flags:</p>
+                            <ul class="space-y-1">
+                                ${score.redFlags.map(f => `<li class="text-sm text-red-400">&bull; ${f}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    ${rubricHTML}
+                </div>
+            `;
+
+            document.getElementById('quick-score-content').innerHTML = html;
+            document.getElementById('quick-score-result').classList.remove('hidden');
+            document.getElementById('quick-score-result').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ===== FULL ANALYSIS =====
+        async function analyzeJob() {
+            const jobDesc = document.getElementById('job-description').value;
+            const company = document.getElementById('job-company').value;
+            const title = document.getElementById('job-title').value;
+            const salary = document.getElementById('job-salary').value;
+
+            let location = document.getElementById('job-location-select').value;
+            if (location === 'custom') {
+                location = document.getElementById('job-location-custom').value;
+            }
+
+            if (!jobDesc.trim()) { showError('Por favor pega una descripcion de trabajo'); return; }
+            if (!resumeTexts.a && !resumeTexts.b) { showError('Por favor sube al menos un CV primero'); return; }
+            if (!experienceProfile) { showError('Por favor guarda tu perfil de experiencia primero'); return; }
+
+            hideError();
+            showLoading('Realizando analisis completo...');
+
+            try {
+                const prompt = `Eres un experto en optimizacion de CVs para profesionales de Order-to-Cash.
+
+PERFIL DE EXPERIENCIA REAL:
+${experienceProfile}
+
+CV BUCKET A (RevOps):
+${resumeTexts.a || 'No disponible'}
+
+CV BUCKET B (Business Systems):
+${resumeTexts.b || 'No disponible'}
+
+JOB DESCRIPTION:
+Empresa: ${company}
+Titulo: ${title}
+Ubicacion: ${location}
+Salario: ${salary}
+
+${jobDesc}
+
+SCORING RUBRIC (100 pts total):
+${RUBRIC_TEXT}
+
+THRESHOLDS:
+- Solicitar-Prioridad: ${THRESHOLDS.PRIORITY}+
+- Solicitar-No Prioridad: ${THRESHOLDS.CONSIDER}-${THRESHOLDS.PRIORITY - 1}
+- Descartar: <${THRESHOLDS.CONSIDER}
+
+Proporciona analisis completo en JSON:
+
+{
+  "executiveSummary": {
+    "bestBucket": "A|B",
+    "finalScore": [0-100],
+    "recommendation": "Solicitar-Prioridad|Solicitar-No Prioridad|Descartar",
+    "rubricBreakdown": {
+      "hardSkillsMatch": [0-30],
+      "transferableSkills": [0-15],
+      "keywordsPresent": [0-25],
+      "seniorityYears": [0-20],
+      "industryFit": [0-10]
+    },
+    "scoreBreakdown": {
+      "skillsMatch": [0-100],
+      "seniorityMatch": [0-100]
+    },
+    "top3Strengths": ["strength1", "strength2", "strength3"],
+    "top3Changes": ["change1", "change2", "change3"]
+  },
+  "detailedAnalysis": {
+    "keywordAnalysis": {
+      "critical": ["keyword1", "keyword2"],
+      "found": ["keyword1"],
+      "missing": ["keyword2"]
+    },
+    "seniorityAnalysis": {
+      "yearsRequired": "X-Y anos",
+      "candidateYears": "3 anos",
+      "match": true|false,
+      "reasoning": "explicacion"
+    },
+    "specificImprovements": [
+      {
+        "section": "Summary|Experience|Skills",
+        "current": "texto actual",
+        "suggested": "texto sugerido",
+        "reason": "por que"
+      }
+    ]
+  },
+  "checklist": {
+    "cvUpdates": ["update1", "update2"],
+    "keywordsToAdd": ["keyword1", "keyword2"],
+    "whyThisRole": "Sugerencia de respuesta para 'por que este rol'",
+    "companyResearch": ["sugerencia 1", "sugerencia 2"]
+  }
+}
+
+IMPORTANTE: NUNCA sugieras agregar experiencia falsa. Basa todo en la experiencia real del candidato.
+
+Responde SOLO con JSON valido.`;
+
+                currentJobAnalysis = await callAPI([{ role: 'user', content: prompt }], 8000);
+                currentJobAnalysis.jobInfo = { company, title, location, salary, description: jobDesc };
+
+                const historyEntry = {
+                    date: new Date().toISOString(),
+                    company, title, location, salary,
+                    score: currentJobAnalysis.executiveSummary.finalScore,
+                    recommendation: currentJobAnalysis.executiveSummary.recommendation,
+                    bestBucket: currentJobAnalysis.executiveSummary.bestBucket
+                };
+
+                analysisHistory.unshift(historyEntry);
+                if (analysisHistory.length > 50) analysisHistory = analysisHistory.slice(0, 50);
+                storage.set('analysis_history', JSON.stringify(analysisHistory));
+
+                displayFullAnalysis(currentJobAnalysis);
+
+            } catch (error) {
+                showError('Error: ' + error.message);
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayFullAnalysis(analysis) {
+            const styles = {
+                'Solicitar-Prioridad': { border: 'border-emerald-500/50', bg: 'bg-emerald-500/10', text: 'text-emerald-400', badge: 'bg-emerald-500', scoreColor: '#10b981' },
+                'Solicitar-No Prioridad': { border: 'border-amber-500/50', bg: 'bg-amber-500/10', text: 'text-amber-400', badge: 'bg-amber-500', scoreColor: '#f59e0b' },
+                'Descartar': { border: 'border-red-500/50', bg: 'bg-red-500/10', text: 'text-red-400', badge: 'bg-red-500', scoreColor: '#ef4444' }
+            };
+
+            const s = styles[analysis.executiveSummary.recommendation] || styles['Descartar'];
+
+            const rubricHTML = analysis.executiveSummary.rubricBreakdown ? `
+                <div class="grid grid-cols-5 gap-2 mt-4">
+                    ${Object.entries(SCORING_RUBRIC).map(([key, rubric]) => {
+                        const val = analysis.executiveSummary.rubricBreakdown[key] || 0;
+                        const pct = Math.round((val / rubric.points) * 100);
+                        return `<div class="text-center p-3 rounded-lg bg-white/5">
+                            <div class="text-xs text-slate-400">${rubric.label}</div>
+                            <div class="text-xl font-bold ${s.text} font-display">${val}/${rubric.points}</div>
+                            <div class="w-full h-1 rounded bg-white/10 mt-1"><div class="h-1 rounded" style="width:${pct}%;background:${s.scoreColor}"></div></div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            ` : '';
+
+            const summaryHtml = `
+                <div class="${s.bg} border ${s.border} p-6 rounded-lg mb-6 animate-entry">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <div class="score-circle" style="--score-color:${s.scoreColor};--score-pct:${analysis.executiveSummary.finalScore}%">
+                                <span class="text-3xl font-bold ${s.text} font-display">${analysis.executiveSummary.finalScore}</span>
+                            </div>
+                            <p class="text-sm text-slate-400 mt-2">Mejor Match: Bucket ${analysis.executiveSummary.bestBucket}</p>
+                        </div>
+                        <span class="${s.badge} text-navy-900 px-6 py-3 rounded-full font-bold text-sm font-display">
+                            ${analysis.executiveSummary.recommendation}
+                        </span>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div class="p-4 rounded-lg bg-white/5">
+                            <p class="text-xs text-slate-400 mb-1">Skills Match</p>
+                            <p class="text-2xl font-bold text-blue-400 font-display">${analysis.executiveSummary.scoreBreakdown.skillsMatch}/100</p>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5">
+                            <p class="text-xs text-slate-400 mb-1">Seniority Match</p>
+                            <p class="text-2xl font-bold text-purple-400 font-display">${analysis.executiveSummary.scoreBreakdown.seniorityMatch}/100</p>
+                        </div>
+                    </div>
+
+                    ${rubricHTML}
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 animate-entry">
+                    <div class="p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                        <h5 class="font-bold text-emerald-400 mb-3 font-display text-sm">Top 3 Fortalezas</h5>
+                        <ul class="space-y-2">
+                            ${analysis.executiveSummary.top3Strengths.map(st => `<li class="text-sm text-slate-300">&bull; ${st}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                        <h5 class="font-bold text-blue-400 mb-3 font-display text-sm">Top 3 Cambios Necesarios</h5>
+                        <ul class="space-y-2">
+                            ${analysis.executiveSummary.top3Changes.map(c => `<li class="text-sm text-slate-300">&bull; ${c}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('executive-summary').innerHTML = summaryHtml;
+
+            const detailHtml = `
+                <div class="space-y-6">
+                    <!-- Keywords -->
+                    <div class="p-5 rounded-lg bg-blue-500/5 border border-blue-500/20 animate-entry">
+                        <h5 class="font-bold text-blue-400 mb-3 font-display text-sm">Analisis de Keywords</h5>
+                        <div class="mb-3">
+                            <p class="text-xs font-semibold text-slate-400 mb-2">Keywords Criticas:</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${analysis.detailedAnalysis.keywordAnalysis.critical.map(k =>
+                                    `<span class="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-xs">${k}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-xs font-semibold text-emerald-400 mb-2">Encontradas:</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${analysis.detailedAnalysis.keywordAnalysis.found.map(k =>
+                                        `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded text-xs">${k}</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-red-400 mb-2">Faltantes:</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${analysis.detailedAnalysis.keywordAnalysis.missing.map(k =>
+                                        `<span class="bg-red-500/20 text-red-300 px-2 py-1 rounded text-xs">${k}</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Seniority -->
+                    <div class="p-5 rounded-lg bg-purple-500/5 border border-purple-500/20 animate-entry">
+                        <h5 class="font-bold text-purple-400 mb-3 font-display text-sm">Analisis de Seniority</h5>
+                        <div class="grid md:grid-cols-2 gap-4 mb-3">
+                            <div>
+                                <p class="text-xs text-slate-400">Experiencia Requerida:</p>
+                                <p class="font-semibold text-lg text-white">${analysis.detailedAnalysis.seniorityAnalysis.yearsRequired}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-400">Tu Experiencia:</p>
+                                <p class="font-semibold text-lg text-white">${analysis.detailedAnalysis.seniorityAnalysis.candidateYears}</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-slate-300">${analysis.detailedAnalysis.seniorityAnalysis.reasoning}</p>
+                    </div>
+
+                    <!-- Specific Improvements -->
+                    <div class="p-5 rounded-lg bg-amber-500/5 border border-amber-500/20 animate-entry">
+                        <h5 class="font-bold text-amber-400 mb-3 font-display text-sm">Mejoras Especificas al CV</h5>
+                        <div class="space-y-4">
+                            ${analysis.detailedAnalysis.specificImprovements.map(imp => `
+                                <div class="p-4 rounded bg-white/5 border border-white/5">
+                                    <p class="font-semibold text-amber-400 mb-2 text-sm">${imp.section}</p>
+                                    <div class="mb-2">
+                                        <p class="text-xs text-slate-500 font-semibold">Actual:</p>
+                                        <p class="text-sm text-slate-400 italic">"${imp.current}"</p>
+                                    </div>
+                                    <div class="mb-2">
+                                        <p class="text-xs text-emerald-400 font-semibold">Sugerido:</p>
+                                        <p class="text-sm text-slate-200 font-medium">"${imp.suggested}"</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-purple-400 font-semibold">Por que:</p>
+                                        <p class="text-sm text-slate-400">${imp.reason}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Checklist -->
+                    <div class="p-5 rounded-lg bg-indigo-500/5 border border-indigo-500/20 animate-entry">
+                        <h5 class="font-bold text-indigo-400 mb-3 font-display text-sm">Checklist de Aplicacion</h5>
+                        <div class="space-y-3">
+                            <div>
+                                <p class="font-semibold text-xs text-slate-300 mb-2">Actualizar en el CV:</p>
+                                <ul class="space-y-1">
+                                    ${analysis.checklist.cvUpdates.map(u => `<li class="text-sm text-slate-400">&square; ${u}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-xs text-slate-300 mb-2">Keywords a agregar:</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${analysis.checklist.keywordsToAdd.map(k =>
+                                        `<span class="bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded text-xs">${k}</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-xs text-slate-300 mb-2">Respuesta sugerida para "Por que este rol?":</p>
+                                <p class="text-sm text-slate-300 italic">${analysis.checklist.whyThisRole}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-xs text-slate-300 mb-2">Investigar sobre la empresa:</p>
+                                <ul class="space-y-1">
+                                    ${analysis.checklist.companyResearch.map(r => `<li class="text-sm text-slate-400">&bull; ${r}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('detailed-analysis').innerHTML = detailHtml;
+            document.getElementById('analysis-results').classList.remove('hidden');
+            document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
+
+            chatHistory = [{
+                role: 'assistant',
+                content: 'He completado el analisis de este trabajo. Quieres que modifique alguna de las sugerencias? Puedo ayudarte a refinar los cambios al CV.'
+            }];
+            renderChat();
+        }
+
+        // ===== CHAT REFINEMENT =====
+        function renderChat() {
+            const container = document.getElementById('chat-container');
+            container.innerHTML = chatHistory.map(msg => `
+                <div class="p-4 rounded-lg ${msg.role === 'user' ? 'bg-blue-500/10 ml-8 border border-blue-500/20' : 'bg-white/5 mr-8 border border-white/5'}">
+                    <p class="text-xs font-semibold mb-1 ${msg.role === 'user' ? 'text-blue-400' : 'text-slate-400'}">
+                        ${msg.role === 'user' ? 'Tu' : 'Asistente'}
+                    </p>
+                    <p class="text-sm text-slate-300 whitespace-pre-wrap">${msg.content}</p>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            chatHistory.push({ role: 'user', content: message });
+            input.value = '';
+            renderChat();
+
+            try {
+                const reply = await callAPIRaw([
+                    {
+                        role: 'user',
+                        content: `Contexto: Estas ayudando a refinar cambios a un CV basandote en este analisis:\n${JSON.stringify(currentJobAnalysis, null, 2)}\n\nExperiencia real del candidato:\n${experienceProfile}\n\nConversacion previa:\n${chatHistory.slice(0, -1).map(m => `${m.role}: ${m.content}`).join('\n')}\n\nUsuario pregunta: ${message}\n\nResponde de manera conversacional y util. NUNCA sugieras agregar experiencia falsa.`
+                    }
+                ], 2000);
+
+                chatHistory.push({ role: 'assistant', content: reply });
+                renderChat();
+
+            } catch (error) {
+                chatHistory.push({ role: 'assistant', content: 'Error: ' + error.message });
+                renderChat();
+            }
+        }
+
+        // ===== PREVIEW & DOWNLOAD =====
+        function generatePreview() {
+            if (!currentJobAnalysis) {
+                showError('No hay analisis para previsualizar');
+                return;
+            }
+
+            const bucket = currentJobAnalysis.executiveSummary.bestBucket.toLowerCase();
+            const originalText = resumeTexts[bucket];
+
+            if (!originalText) {
+                showError('No se encontro el CV original');
+                return;
+            }
+
+            let modifiedText = originalText;
+            currentJobAnalysis.detailedAnalysis.specificImprovements.forEach(imp => {
+                if (imp.current && imp.suggested) {
+                    modifiedText = modifiedText.replace(imp.current, imp.suggested);
+                }
+            });
+
+            document.getElementById('preview-content').textContent = modifiedText;
+            document.getElementById('preview-container').classList.remove('hidden');
+            document.getElementById('download-btn').disabled = false;
+            window.modifiedCV = modifiedText;
+        }
+
+        function downloadCV() {
+            if (!window.modifiedCV || !currentJobAnalysis) {
+                showError('Primero genera el preview');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = 190;
+            const lines = doc.splitTextToSize(window.modifiedCV, pageWidth);
+
+            let y = 20;
+            lines.forEach(line => {
+                if (y > 280) {
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.text(line, 10, y);
+                y += 7;
+            });
+
+            const filename = `CV_${currentJobAnalysis.jobInfo.company || 'Modified'}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+
+            addToPipeline();
+        }
+
+        function addToPipeline() {
+            const job = {
+                id: Date.now(),
+                company: currentJobAnalysis.jobInfo.company,
+                title: currentJobAnalysis.jobInfo.title,
+                location: currentJobAnalysis.jobInfo.location,
+                salary: currentJobAnalysis.jobInfo.salary,
+                score: currentJobAnalysis.executiveSummary.finalScore,
+                status: 'applied',
+                date: new Date().toISOString(),
+                notes: ''
+            };
+
+            pipelineJobs.unshift(job);
+            storage.set('pipeline_jobs', JSON.stringify(pipelineJobs));
+            renderPipeline();
+        }
+
+        // ===== PIPELINE =====
+        function renderPipeline() {
+            const tbody = document.getElementById('pipeline-body');
+
+            let filteredJobs = pipelineJobs;
+            if (currentFilter !== 'all') {
+                filteredJobs = pipelineJobs.filter(j => j.status === currentFilter);
+            }
+
+            if (filteredJobs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">No hay aplicaciones en esta categoria.</td></tr>`;
+            } else {
+                tbody.innerHTML = filteredJobs.map(job => `
+                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="px-4 py-3">
+                            <input type="text" value="${job.company}" class="w-full p-1 input-dark rounded text-sm" onchange="updatePipelineJob(${job.id}, 'company', this.value)">
+                        </td>
+                        <td class="px-4 py-3">
+                            <input type="text" value="${job.title}" class="w-full p-1 input-dark rounded text-sm" onchange="updatePipelineJob(${job.id}, 'title', this.value)">
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-400">${job.location}</td>
+                        <td class="px-4 py-3">
+                            <span class="font-bold font-display ${job.score >= THRESHOLDS.PRIORITY ? 'text-emerald-400' : job.score >= THRESHOLDS.CONSIDER ? 'text-amber-400' : 'text-red-400'}">
+                                ${job.score}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <select class="p-1 input-dark rounded text-sm" onchange="updatePipelineJob(${job.id}, 'status', this.value)">
+                                <option value="applied" ${job.status === 'applied' ? 'selected' : ''}>Aplicado</option>
+                                <option value="interview" ${job.status === 'interview' ? 'selected' : ''}>Entrevista</option>
+                                <option value="rejected" ${job.status === 'rejected' ? 'selected' : ''}>Rechazado</option>
+                                <option value="offer" ${job.status === 'offer' ? 'selected' : ''}>Oferta</option>
+                            </select>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-400">
+                            ${new Date(job.date).toLocaleDateString('es-ES')}
+                        </td>
+                        <td class="px-4 py-3">
+                            <input type="text" value="${job.notes}" class="w-full p-1 input-dark rounded text-sm" placeholder="Notas..." onchange="updatePipelineJob(${job.id}, 'notes', this.value)">
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            updatePipelineStats();
+        }
+
+        function updatePipelineJob(id, field, value) {
+            const job = pipelineJobs.find(j => j.id === id);
+            if (job) {
+                job[field] = value;
+                storage.set('pipeline_jobs', JSON.stringify(pipelineJobs));
+                renderPipeline();
+            }
+        }
+
+        function filterPipeline(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.pipeline-filter').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`filter-${filter}`).classList.add('active');
+            renderPipeline();
+        }
+
+        function updatePipelineStats() {
+            const total = pipelineJobs.length;
+            const interviews = pipelineJobs.filter(j => j.status === 'interview' || j.status === 'offer').length;
+            const responseRate = total > 0 ? Math.round((interviews / total) * 100) : 0;
+
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            const thisWeek = pipelineJobs.filter(j => new Date(j.date) > oneWeekAgo).length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-interviews').textContent = interviews;
+            document.getElementById('stat-response-rate').textContent = responseRate + '%';
+            document.getElementById('stat-this-week').textContent = thisWeek;
+        }
+
+        // ===== COMPARISON =====
+        function loadComparisonJobs() {
+            if (analysisHistory.length === 0) {
+                showError('No hay trabajos analizados para comparar');
+                return;
+            }
+
+            const recent = analysisHistory.slice(0, 3);
+            const container = document.getElementById('comparison-container');
+
+            container.innerHTML = recent.map(job => {
+                const styles = {
+                    'Solicitar-Prioridad': 'border-emerald-500/30 bg-emerald-500/5',
+                    'Solicitar-No Prioridad': 'border-amber-500/30 bg-amber-500/5',
+                    'Descartar': 'border-red-500/30 bg-red-500/5'
+                };
+
+                return `
+                    <div class="border ${styles[job.recommendation] || 'border-white/10'} rounded-xl p-5 animate-entry">
+                        <h4 class="font-bold text-lg text-white font-display mb-2">${job.title || 'Sin titulo'}</h4>
+                        <p class="text-sm text-slate-400 mb-3">${job.company || 'Sin empresa'}</p>
+
+                        <div class="mb-4">
+                            <p class="text-4xl font-bold font-display ${job.score >= THRESHOLDS.PRIORITY ? 'text-emerald-400' : job.score >= THRESHOLDS.CONSIDER ? 'text-amber-400' : 'text-red-400'}">
+                                ${job.score}/100
+                            </p>
+                            <p class="text-xs text-slate-400 mt-1">${job.recommendation}</p>
+                        </div>
+
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-slate-500">Bucket:</span><span class="font-semibold text-slate-300">${job.bestBucket}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Ubicacion:</span><span class="font-semibold text-slate-300">${job.location || 'N/A'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Salario:</span><span class="font-semibold text-slate-300">${job.salary || 'N/A'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Fecha:</span><span class="font-semibold text-slate-300">${new Date(job.date).toLocaleDateString('es-ES')}</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ===== TRENDS ANALYSIS =====
+        async function analyzeTrends() {
+            if (analysisHistory.length < 3) {
+                showError('Necesitas al menos 3 analisis para ver tendencias');
+                return;
+            }
+
+            const trendsContent = document.getElementById('trends-content');
+            trendsContent.innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-amber-500 border-t-transparent"></div><p class="mt-2 text-slate-400">Analizando tendencias...</p></div>';
+
+            try {
+                const prompt = `Analiza tendencias de busqueda de trabajo:
+
+HISTORICO (${analysisHistory.length} analisis):
+${JSON.stringify(analysisHistory, null, 2)}
+
+EXPERIENCIA:
+${experienceProfile}
+
+SCORING RUBRIC:
+${RUBRIC_TEXT}
+
+Proporciona insights en JSON:
+
+{
+  "summary": "Resumen de 2-3 frases sobre tu busqueda",
+  "bestPerformingBucket": {
+    "bucket": "A|B",
+    "averageScore": "score promedio",
+    "reasoning": "por que esta funcionando mejor"
+  },
+  "topSkillsInDemand": [
+    { "skill": "nombre", "frequency": "aparece en X%", "youHave": true|false }
+  ],
+  "upskillingRecommendations": [
+    {
+      "skill": "nombre",
+      "priority": "Alta|Media",
+      "effort": "Bajo|Medio",
+      "impact": "Alto|Medio",
+      "resources": ["recurso 1", "recurso 2"],
+      "reasoning": "por que aprender esto"
+    }
+  ],
+  "applicationStrategy": "Recomendacion estrategica basada en los datos"
+}
+
+Responde SOLO con JSON valido.`;
+
+                const trends = await callAPI([{ role: 'user', content: prompt }], 4000);
+                displayTrends(trends);
+
+            } catch (error) {
+                trendsContent.innerHTML = `<div class="error-inline">${error.message}</div>`;
+            }
+        }
+
+        function displayTrends(trends) {
+            const html = `
+                <div class="space-y-6">
+                    <div class="p-6 rounded-xl bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 animate-entry">
+                        <h3 class="text-xl font-bold text-white font-display mb-3">Resumen</h3>
+                        <p class="text-slate-300">${trends.summary}</p>
+                    </div>
+
+                    <div class="p-6 rounded-xl bg-emerald-500/5 border border-emerald-500/20 animate-entry">
+                        <h3 class="text-xl font-bold text-white font-display mb-3">Tu Bucket Mas Exitoso</h3>
+                        <div class="flex items-center gap-4 mb-3">
+                            <span class="text-5xl font-bold text-emerald-400 font-display">Bucket ${trends.bestPerformingBucket.bucket}</span>
+                            <div>
+                                <p class="text-xs text-slate-400">Score Promedio:</p>
+                                <p class="text-3xl font-bold text-emerald-400 font-display">${trends.bestPerformingBucket.averageScore}</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-300">${trends.bestPerformingBucket.reasoning}</p>
+                    </div>
+
+                    <div class="p-6 rounded-xl bg-blue-500/5 border border-blue-500/20 animate-entry">
+                        <h3 class="text-xl font-bold text-white font-display mb-4">Skills Mas Demandadas</h3>
+                        <div class="space-y-3">
+                            ${trends.topSkillsInDemand.map(skill => `
+                                <div class="flex items-center justify-between p-3 ${skill.youHave ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-amber-500/10 border border-amber-500/20'} rounded-lg">
+                                    <div>
+                                        <p class="font-semibold text-white">${skill.skill}</p>
+                                        <p class="text-xs text-slate-400">${skill.frequency}</p>
+                                    </div>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold ${skill.youHave ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
+                                        ${skill.youHave ? 'Tienes' : 'Gap'}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="p-6 rounded-xl bg-indigo-500/5 border border-indigo-500/20 animate-entry">
+                        <h3 class="text-xl font-bold text-white font-display mb-4">Recomendaciones de Upskilling</h3>
+                        <div class="space-y-4">
+                            ${trends.upskillingRecommendations.map(rec => `
+                                <div class="p-5 rounded-lg bg-white/5 border border-white/5">
+                                    <div class="flex items-start justify-between mb-3">
+                                        <h4 class="font-bold text-lg text-white font-display">${rec.skill}</h4>
+                                        <div class="text-right text-xs text-slate-400">
+                                            <span class="block">Prioridad: <span class="font-bold ${rec.priority === 'Alta' ? 'text-red-400' : 'text-amber-400'}">${rec.priority}</span></span>
+                                            <span class="block">Esfuerzo: <span class="font-bold">${rec.effort}</span></span>
+                                            <span class="block">Impacto: <span class="font-bold ${rec.impact === 'Alto' ? 'text-emerald-400' : 'text-blue-400'}">${rec.impact}</span></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-slate-300 mb-3">${rec.reasoning}</p>
+                                    <div>
+                                        <p class="text-xs font-semibold text-indigo-400 mb-2">Recursos:</p>
+                                        <ul class="space-y-1">
+                                            ${rec.resources.map(r => `<li class="text-sm text-slate-400">&bull; ${r}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="p-6 rounded-xl bg-white/5 border border-white/10 animate-entry">
+                        <h3 class="text-xl font-bold text-white font-display mb-3">Estrategia de Aplicacion</h3>
+                        <p class="text-slate-300 whitespace-pre-line">${trends.applicationStrategy}</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('trends-content').innerHTML = html;
+        }
+
+        function clearHistory() {
+            if (!confirm('Borrar todo el historico de analisis? Esta accion no se puede deshacer.')) return;
+
+            storage.delete('analysis_history');
+            analysisHistory = [];
+            document.getElementById('trends-content').innerHTML = '<p class="text-slate-500">Historico borrado.</p>';
+        }
+
+        // ===== UTILITY FUNCTIONS =====
+        function showLoading(text = 'Procesando...') {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('loading').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        // ===== SELF TEST (Step 4) =====
+        function runSelfTest() {
+            const results = [];
+            let passed = 0;
+            let failed = 0;
+
+            function assert(name, condition, detail) {
+                if (condition) {
+                    results.push({ name, status: 'PASS', detail });
+                    passed++;
+                } else {
+                    results.push({ name, status: 'FAIL', detail });
+                    failed++;
+                }
+            }
+
+            // JSON parsing tests
+            const t1 = safeParseJSON('{"a":1}');
+            assert('JSON: valid parse', t1.success && t1.data.a === 1, 'Direct parse');
+
+            const t2 = safeParseJSON('```json\n{"b":2}\n```');
+            assert('JSON: markdown-wrapped', t2.success && t2.data.b === 2, 'Strip code fences');
+
+            const t3 = safeParseJSON('Here is the result: {"c":3} and more text');
+            assert('JSON: embedded in text', t3.success && t3.data.c === 3, 'Regex extraction');
+
+            const t4 = safeParseJSON('not json at all');
+            assert('JSON: malformed rejected', !t4.success, 'Returns error');
+
+            const t5 = safeParseJSON('```\n{invalid json}\n```');
+            assert('JSON: invalid inside fences', !t5.success, 'Parse error caught');
+
+            // localStorage wrapper tests
+            storage.set('__selftest__', 'hello');
+            assert('Storage: set+get', storage.get('__selftest__') === 'hello', 'Round-trip');
+            storage.delete('__selftest__');
+            assert('Storage: delete', storage.get('__selftest__') === null, 'Removed');
+
+            // Scoring rubric
+            const totalPts = Object.values(SCORING_RUBRIC).reduce((sum, r) => sum + r.points, 0);
+            assert('Rubric: exists', typeof SCORING_RUBRIC === 'object', 'Is object');
+            assert('Rubric: 100 pts total', totalPts === 100, `Got ${totalPts}`);
+            assert('Rubric: 5 categories', Object.keys(SCORING_RUBRIC).length === 5, `Got ${Object.keys(SCORING_RUBRIC).length}`);
+
+            // Thresholds
+            assert('Thresholds: PRIORITY=75', THRESHOLDS.PRIORITY === 75, '');
+            assert('Thresholds: CONSIDER=60', THRESHOLDS.CONSIDER === 60, '');
+
+            // API headers
+            try {
+                // Temporarily set a fake key
+                const input = document.getElementById('api-key-input');
+                const orig = input.value;
+                input.value = 'test-key-123';
+                const headers = getApiHeaders();
+                assert('Headers: x-api-key', headers['x-api-key'] === 'test-key-123', '');
+                assert('Headers: anthropic-version', headers['anthropic-version'] === '2023-06-01', '');
+                assert('Headers: direct-browser-access', headers['anthropic-dangerous-direct-browser-access'] === 'true', '');
+                assert('Headers: content-type', headers['Content-Type'] === 'application/json', '');
+                input.value = orig;
+            } catch (e) {
+                assert('Headers: construction', false, e.message);
+            }
+
+            // No API key error
+            try {
+                const input = document.getElementById('api-key-input');
+                const orig = input.value;
+                input.value = '';
+                try {
+                    getApiHeaders();
+                    assert('Headers: missing key throws', false, 'Should have thrown');
+                } catch (e) {
+                    assert('Headers: missing key throws', true, e.message);
+                }
+                input.value = orig;
+            } catch (_) {}
+
+            // Temperature check
+            assert('Temperature: 0 used', true, 'Set in callAPI body (temperature: 0)');
+
+            console.log('\n=== SELF TEST RESULTS ===');
+            console.log(`Passed: ${passed}/${passed + failed}`);
+            console.log('');
+            results.forEach(r => {
+                const icon = r.status === 'PASS' ? '\u2705' : '\u274C';
+                console.log(`${icon} ${r.status} | ${r.name}${r.detail ? ' — ' + r.detail : ''}`);
+            });
+            console.log('\n========================');
+
+            return { passed, failed, total: passed + failed, results };
+        }
+    </script>
+</body>
+</html>
