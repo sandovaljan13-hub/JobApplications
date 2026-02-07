@@ -458,9 +458,8 @@
                             Descargar CV
                         </button>
                     </div>
-                    <div id="preview-container" class="hidden mt-6 p-6 rounded-lg bg-navy-900/60 border border-white/10">
-                        <h4 class="font-bold text-slate-300 mb-3 font-display">Preview del CV Modificado:</h4>
-                        <div id="preview-content" class="whitespace-pre-wrap text-slate-300 text-sm"></div>
+                    <div id="preview-container" class="hidden mt-6 rounded-lg border border-white/10 overflow-hidden">
+                        <div id="preview-content" style="background:#fff; color:#000; padding:40px; max-width:850px; margin:0 auto; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:10pt; line-height:1.45;"></div>
                     </div>
                 </div>
             </div>
@@ -882,8 +881,20 @@
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(' ');
-                fullText += pageText + '\n';
+                // Use Y-position to detect line breaks
+                let lastY = null;
+                let lineText = '';
+                for (const item of textContent.items) {
+                    const y = item.transform[5]; // Y position
+                    if (lastY !== null && Math.abs(y - lastY) > 2) {
+                        fullText += lineText.trimEnd() + '\n';
+                        lineText = '';
+                    }
+                    lineText += item.str;
+                    lastY = y;
+                }
+                if (lineText) fullText += lineText.trimEnd() + '\n';
+                fullText += '\n'; // Page break
             }
             return fullText;
         }
@@ -1420,6 +1431,312 @@ Responde SOLO con JSON valido.`;
         }
 
         // ===== PREVIEW & DOWNLOAD =====
+        // ===== CV PARSER =====
+        // Parses raw CV text (from PDF.js extraction) into structured sections
+        function parseCV(rawText) {
+            const cv = {
+                name: '',
+                subtitle: '',
+                summary: '',
+                contact: { email: '', phone: '', location: '', linkedin: '' },
+                workExperience: [],
+                education: [],
+                skills: [],
+                technicalPortfolio: [],
+                certifications: []
+            };
+
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            // Extract contact info
+            for (const line of lines) {
+                const emailMatch = line.match(/[\w.-]+@[\w.-]+\.\w+/);
+                if (emailMatch && !cv.contact.email) cv.contact.email = emailMatch[0];
+                const phoneMatch = line.match(/\+?1?\s*\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
+                if (phoneMatch && !cv.contact.phone) cv.contact.phone = phoneMatch[0];
+                const linkedinMatch = line.match(/linkedin\.com\/in\/[\w-]+/);
+                if (linkedinMatch && !cv.contact.linkedin) cv.contact.linkedin = linkedinMatch[0];
+            }
+            // Find location from the contact line (line containing email)
+            const contactLine = lines.find(l => l.includes('@') && l.includes('linkedin'));
+            if (contactLine) {
+                const locMatch = contactLine.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2})/);
+                if (locMatch) cv.contact.location = locMatch[1].trim();
+            }
+
+            // Split into sections by header keywords
+            const sectionHeaders = ['WORK EXPERIENCE', 'EDUCATION', 'SKILLS', 'TECHNICAL PORTFOLIO', 'CERTIFICATIONS'];
+            let currentSection = 'header';
+            const sectionContent = { header: [] };
+            sectionHeaders.forEach(h => sectionContent[h] = []);
+
+            for (const line of lines) {
+                const upper = line.toUpperCase().trim();
+                // Skip lines that are just contact info
+                if (line === contactLine) continue;
+                // Check if this is a section header
+                const matched = sectionHeaders.find(h => upper === h);
+                if (matched) {
+                    currentSection = matched;
+                    continue;
+                }
+                // Skip sub-headers
+                if (upper === 'ACHIEVEMENTS/TASKS' || upper === 'COURSES') continue;
+                sectionContent[currentSection].push(line);
+            }
+
+            // Parse header: name, subtitle, summary
+            const hdr = sectionContent.header;
+            if (hdr.length > 0) cv.name = hdr[0];
+            if (hdr.length > 1) cv.subtitle = hdr[1];
+            if (hdr.length > 2) cv.summary = hdr.slice(2).join(' ');
+
+            // Parse Work Experience
+            // Bullet-start keywords: verbs that begin achievement bullets
+            const bulletVerbs = /^(Reduced|Cut|Improved|Conducted|Automated|Built|Led|Managed|Designed|Developed|Created|Implemented|Achieved|Drove|Delivered|Spearheaded|Streamlined|Launched|Increased|Decreased|Optimized|Analyzed|Generated|Negotiated|Coordinated|Established|Oversaw|Migrated|Architected|Revamped|Transformed|Enabled|Identified|Integrated|Consolidated|Supported|Collaborated|Maintained|Executed|Facilitated)\b/;
+            const expLines = sectionContent['WORK EXPERIENCE'];
+            let currentJob = null;
+            let pendingBullet = '';
+
+            function flushBullet() {
+                if (pendingBullet && currentJob) {
+                    currentJob.bullets.push(pendingBullet);
+                    pendingBullet = '';
+                }
+            }
+
+            for (let i = 0; i < expLines.length; i++) {
+                const line = expLines[i];
+                const dateMatch = line.match(/(\d{2}\/\d{4})\s*[-–]\s*(\d{2}\/\d{4}|Present|Presente)/i);
+
+                if (dateMatch) {
+                    if (currentJob) {
+                        currentJob.dates = dateMatch[0];
+                        const afterDate = line.replace(dateMatch[0], '').trim().replace(/^,\s*/, '');
+                        if (afterDate) currentJob.location = afterDate;
+                    }
+                } else if (line.match(/^Promoted from/i)) {
+                    if (currentJob) currentJob.promotion = line;
+                } else if (line.match(bulletVerbs) || line.startsWith('•') || line.startsWith('◦')) {
+                    flushBullet();
+                    pendingBullet = line.replace(/^[•◦]\s*/, '');
+                } else if (pendingBullet) {
+                    // Continuation of a bullet (wrapped line)
+                    pendingBullet += ' ' + line;
+                } else if (!currentJob || (currentJob.dates && currentJob.bullets.length > 0)) {
+                    // New job: first line is title
+                    flushBullet();
+                    currentJob = { title: line, company: '', dates: '', location: '', promotion: '', bullets: [] };
+                    cv.workExperience.push(currentJob);
+                } else if (currentJob && !currentJob.company) {
+                    currentJob.company = line;
+                }
+            }
+            flushBullet();
+
+            // Parse Skills — category headers have multiple words with capitals, no commas
+            // Continuation lines contain commas, parentheses, or are single lowercase words
+            const skillLines = sectionContent['SKILLS'];
+            let currentSkillCat = null;
+            for (const line of skillLines) {
+                // A category header: 2+ words, no commas, no parens, has uppercase words
+                const wordCount = line.split(/\s+/).length;
+                const hasComma = line.includes(',');
+                const hasParen = line.includes('(');
+                const looksLikeCategory = wordCount >= 2 && !hasComma && !hasParen && line.length < 30;
+                if (looksLikeCategory) {
+                    currentSkillCat = { category: line, items: '' };
+                    cv.skills.push(currentSkillCat);
+                } else if (currentSkillCat) {
+                    currentSkillCat.items += (currentSkillCat.items ? ' ' : '') + line;
+                }
+            }
+
+            // Parse Education — join wrapped lines for degree
+            const eduLines = sectionContent['EDUCATION'];
+            let currentEdu = null;
+            let eduPhase = 'degree'; // degree -> school -> dates -> details
+            for (const line of eduLines) {
+                const dateMatch = line.match(/(\d{2}\/\d{4})\s*[-–]\s*(\d{2}\/\d{4}|Present)/i);
+                if (dateMatch) {
+                    if (currentEdu) {
+                        currentEdu.dates = dateMatch[0];
+                        const afterDate = line.replace(dateMatch[0], '').trim().replace(/^,\s*/, '');
+                        if (afterDate) currentEdu.location = afterDate;
+                    }
+                    eduPhase = 'details';
+                } else if (!currentEdu) {
+                    currentEdu = { degree: line, school: '', dates: '', location: '', details: [] };
+                    cv.education.push(currentEdu);
+                    eduPhase = 'degree-cont';
+                } else if (eduPhase === 'degree-cont') {
+                    // Check if this looks like a school name (contains University/Institute/College)
+                    if (line.match(/University|Institute|College|School|Academy/i)) {
+                        currentEdu.school = line;
+                        eduPhase = 'school';
+                    } else {
+                        // Continuation of the degree name
+                        currentEdu.degree += ' ' + line;
+                    }
+                } else if (eduPhase === 'school' || eduPhase === 'details') {
+                    // Join fragmented lines: if line starts with a keyword or capital, it's a new detail
+                    // Otherwise it's a continuation of the previous detail
+                    const startsNewEntry = line.match(/^(Published|Relevant|GPA|Dean|Honor|Award|Thesis|Minor|Major|Scholarship)/i);
+                    if (startsNewEntry || currentEdu.details.length === 0) {
+                        currentEdu.details.push(line);
+                    } else {
+                        // Check if previous line ends with hyphen (word break) or colon
+                        const prev = currentEdu.details[currentEdu.details.length - 1];
+                        if (prev.endsWith('-')) {
+                            currentEdu.details[currentEdu.details.length - 1] = prev + line;
+                        } else {
+                            currentEdu.details[currentEdu.details.length - 1] = prev + ' ' + line;
+                        }
+                    }
+                }
+            }
+
+            // Parse Technical Portfolio
+            const portfolioLines = sectionContent['TECHNICAL PORTFOLIO'];
+            let currentPortfolio = null;
+            for (const line of portfolioLines) {
+                if (!currentPortfolio) {
+                    currentPortfolio = { title: line, description: '' };
+                    cv.technicalPortfolio.push(currentPortfolio);
+                } else {
+                    currentPortfolio.description += (currentPortfolio.description ? ' ' : '') + line;
+                }
+            }
+
+            // Parse Certifications
+            cv.certifications = sectionContent['CERTIFICATIONS'].filter(l => l.trim().length > 0);
+
+            return cv;
+        }
+
+        // Render parsed CV to HTML matching the exact PDF layout
+        function renderCVHTML(cv) {
+            const teal = '#2b6777';
+            const darkText = '#1a1a1a';
+            const grayText = '#555';
+            const lightGray = '#e0e0e0';
+
+            const sectionTitle = (text) => `
+                <h2 style="font-size:14pt; font-weight:700; color:${teal}; margin:18px 0 10px 0; padding-bottom:4px; border-bottom:2px solid ${teal}; text-transform:uppercase; letter-spacing:0.5px;">${text}</h2>
+            `;
+
+            const bullet = (text) => `
+                <div style="display:flex; align-items:flex-start; margin-bottom:5px; padding-left:8px;">
+                    <span style="color:${teal}; margin-right:8px; margin-top:2px; font-size:8pt;">&#9702;</span>
+                    <span style="flex:1; color:${darkText}; font-size:9.5pt; line-height:1.45;">${text}</span>
+                </div>
+            `;
+
+            // Contact bar
+            const contactBar = `
+                <div style="display:flex; justify-content:center; gap:24px; flex-wrap:wrap; padding:10px 16px; background:#f5f5f5; border-top:1px solid ${lightGray}; border-bottom:1px solid ${lightGray}; margin:16px 0; font-size:9pt; color:${darkText};">
+                    ${cv.contact.email ? `<span>&#9993; ${cv.contact.email}</span>` : ''}
+                    ${cv.contact.phone ? `<span>&#9742; ${cv.contact.phone}</span>` : ''}
+                    ${cv.contact.location ? `<span>&#9679; ${cv.contact.location}</span>` : ''}
+                    ${cv.contact.linkedin ? `<span>&#128279; ${cv.contact.linkedin}</span>` : ''}
+                </div>
+            `;
+
+            // Work Experience
+            const workHTML = cv.workExperience.map(job => `
+                <div style="margin-bottom:14px;">
+                    <div style="font-size:11pt; font-weight:700; color:${darkText};">${job.title}</div>
+                    <div style="font-size:10pt; color:${darkText};">${job.company}</div>
+                    <div style="display:flex; justify-content:space-between; font-size:9pt; color:${grayText}; font-style:italic; margin:2px 0;">
+                        <span>${job.dates || ''}</span>
+                        <span>${job.location || ''}</span>
+                    </div>
+                    ${job.promotion ? `<div style="font-size:8.5pt; color:${grayText}; font-style:italic; margin-bottom:4px;">${job.promotion}</div>` : ''}
+                    <div style="font-size:8.5pt; color:${grayText}; font-style:italic; margin-bottom:6px;">Achievements/Tasks</div>
+                    ${job.bullets.map(b => bullet(b)).join('')}
+                </div>
+            `).join('');
+
+            // Education
+            const eduHTML = cv.education.map(edu => `
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:11pt; font-weight:700; color:${darkText};">${edu.degree}</div>
+                    <div style="font-size:10pt; color:${darkText};">${edu.school}</div>
+                    <div style="display:flex; justify-content:space-between; font-size:9pt; color:${grayText}; font-style:italic; margin:2px 0 6px 0;">
+                        <span>${edu.dates || ''}</span>
+                        <span>${edu.location || ''}</span>
+                    </div>
+                    ${edu.details.length > 0 ? edu.details.map(d => bullet(d)).join('') : ''}
+                </div>
+            `).join('');
+
+            // Skills
+            const skillsHTML = cv.skills.map(s => `
+                <div style="margin-bottom:10px;">
+                    <div style="font-size:10pt; font-weight:700; color:${darkText};">${s.category}</div>
+                    <div style="font-size:9.5pt; color:${darkText}; line-height:1.45;">${s.items}</div>
+                </div>
+            `).join('');
+
+            // Technical Portfolio
+            const portfolioHTML = cv.technicalPortfolio.map(p => `
+                <div style="margin-bottom:10px;">
+                    <div style="font-size:10pt; font-weight:700; color:${darkText};">${p.title}</div>
+                    ${p.description ? bullet(p.description) : ''}
+                </div>
+            `).join('');
+
+            // Certifications
+            const certsHTML = cv.certifications.map(c =>
+                `<div style="font-size:9.5pt; color:${darkText}; margin-bottom:4px;">${c}</div>`
+            ).join('');
+
+            return `
+                <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:${darkText}; max-width:800px; margin:0 auto;">
+                    <!-- Header -->
+                    <div style="margin-bottom:0;">
+                        <h1 style="font-size:24pt; font-weight:700; color:${darkText}; margin:0 0 2px 0;">${cv.name}</h1>
+                        <div style="font-size:12pt; color:${teal}; margin-bottom:10px;">${cv.subtitle}</div>
+                        <p style="font-size:9.5pt; color:${darkText}; line-height:1.5; margin:0;">${cv.summary}</p>
+                    </div>
+
+                    ${contactBar}
+
+                    <!-- Two Column Layout -->
+                    <div style="display:flex; gap:30px;">
+                        <!-- Left Column (55%) -->
+                        <div style="flex:55;">
+                            ${sectionTitle('Work Experience')}
+                            ${workHTML}
+
+                            ${cv.education.length > 0 ? `
+                                ${sectionTitle('Education')}
+                                ${eduHTML}
+                            ` : ''}
+                        </div>
+
+                        <!-- Right Column (45%) -->
+                        <div style="flex:45;">
+                            ${cv.skills.length > 0 ? `
+                                ${sectionTitle('Skills')}
+                                ${skillsHTML}
+                            ` : ''}
+
+                            ${cv.technicalPortfolio.length > 0 ? `
+                                ${sectionTitle('Technical Portfolio')}
+                                ${portfolioHTML}
+                            ` : ''}
+
+                            ${cv.certifications.length > 0 ? `
+                                ${sectionTitle('Certifications')}
+                                ${certsHTML}
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function generatePreview() {
             if (!currentJobAnalysis) {
                 showError('No hay analisis para previsualizar');
@@ -1434,6 +1751,7 @@ Responde SOLO con JSON valido.`;
                 return;
             }
 
+            // Apply text replacements from analysis
             let modifiedText = originalText;
             currentJobAnalysis.detailedAnalysis.specificImprovements.forEach(imp => {
                 if (imp.current && imp.suggested) {
@@ -1441,10 +1759,16 @@ Responde SOLO con JSON valido.`;
                 }
             });
 
-            document.getElementById('preview-content').textContent = modifiedText;
-            document.getElementById('preview-container').classList.remove('hidden');
-            document.getElementById('download-btn').disabled = false;
             window.modifiedCV = modifiedText;
+
+            // Parse and render structured HTML preview
+            const cv = parseCV(modifiedText);
+            const html = renderCVHTML(cv);
+            document.getElementById('preview-content').innerHTML = html;
+            document.getElementById('analysis-results').classList.remove('hidden');
+            document.getElementById('preview-container').classList.remove('hidden');
+            document.getElementById('preview-container').scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('download-btn').disabled = false;
         }
 
         function downloadCV() {
@@ -1453,23 +1777,42 @@ Responde SOLO con JSON valido.`;
                 return;
             }
 
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const pageWidth = 190;
-            const lines = doc.splitTextToSize(window.modifiedCV, pageWidth);
+            // Use browser print-to-PDF via an iframe for pixel-perfect output
+            const cv = parseCV(window.modifiedCV);
+            const html = renderCVHTML(cv);
 
-            let y = 20;
-            lines.forEach(line => {
-                if (y > 280) {
-                    doc.addPage();
-                    y = 20;
-                }
-                doc.text(line, 10, y);
-                y += 7;
-            });
+            const printCSS = `
+                @page { size: A4; margin: 20mm 18mm 18mm 18mm; }
+                body { margin: 0; padding: 0; }
+                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            `;
 
-            const filename = `CV_${currentJobAnalysis.jobInfo.company || 'Modified'}_${new Date().toISOString().split('T')[0]}.pdf`;
-            doc.save(filename);
+            const fullHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${printCSS}</style></head><body>${html}</body></html>`;
+
+            const printFrame = document.createElement('iframe');
+            printFrame.style.position = 'fixed';
+            printFrame.style.right = '0';
+            printFrame.style.bottom = '0';
+            printFrame.style.width = '0';
+            printFrame.style.height = '0';
+            printFrame.style.border = 'none';
+            document.body.appendChild(printFrame);
+
+            printFrame.contentDocument.open();
+            printFrame.contentDocument.write(fullHTML);
+            printFrame.contentDocument.close();
+
+            printFrame.contentWindow.onafterprint = () => {
+                document.body.removeChild(printFrame);
+            };
+
+            setTimeout(() => {
+                printFrame.contentWindow.print();
+                // Fallback cleanup after 60s
+                setTimeout(() => {
+                    if (printFrame.parentNode) document.body.removeChild(printFrame);
+                }, 60000);
+            }, 500);
 
             addToPipeline();
         }
