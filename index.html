@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Sora:wght@300;400;500;600;700;800&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -459,8 +459,8 @@
                             Descargar CV
                         </button>
                     </div>
-                    <div id="preview-container" class="hidden mt-6 rounded-lg border border-white/10 overflow-hidden">
-                        <div id="preview-content" style="background:#fff; color:#000; padding:40px; max-width:850px; margin:0 auto; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:10pt; line-height:1.45;"></div>
+                    <div id="preview-container" class="hidden mt-6 rounded-lg border border-white/10" style="display:flex; justify-content:center; background:#e2e8f0; padding:24px;">
+                        <div id="preview-content" style="background:#fff; color:#000; padding:40px 36px; width:750px; min-width:750px; max-width:750px; font-family:'Ubuntu','Helvetica Neue',Helvetica,Arial,sans-serif; font-size:10pt; line-height:1.45; box-shadow:0 2px 20px rgba(0,0,0,0.15);"></div>
                     </div>
                 </div>
             </div>
@@ -1705,7 +1705,7 @@ Responde SOLO con JSON valido.`;
             ).join('');
 
             return `
-                <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:${darkText}; max-width:800px; margin:0 auto;">
+                <div style="font-family:'Ubuntu','Helvetica Neue',Helvetica,Arial,sans-serif; color:${darkText}; max-width:800px; margin:0 auto;">
                     <!-- Header -->
                     <div style="margin-bottom:0;">
                         <h1 style="font-size:24pt; font-weight:700; color:${darkText}; margin:0 0 2px 0;">${cv.name}</h1>
@@ -1790,35 +1790,255 @@ Responde SOLO con JSON valido.`;
                 return;
             }
 
-            const cv = parseCV(window.modifiedCV);
-            const html = renderCVHTML(cv);
+            const cvRaw = parseCV(window.modifiedCV);
+            // Sanitize all strings for jsPDF (helvetica can't render Unicode symbols)
+            function sanitizeStr(obj) {
+                if (typeof obj === 'string') return obj.replace(/[→⟶⇒]/g, '->').replace(/[•◦●○◆◇▪▫]/g, '-').replace(/[^\x00-\x7F]/g, '');
+                if (Array.isArray(obj)) return obj.map(sanitizeStr);
+                if (obj && typeof obj === 'object') { const r = {}; for (const k in obj) r[k] = sanitizeStr(obj[k]); return r; }
+                return obj;
+            }
+            const cv = sanitizeStr(cvRaw);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-            // Create a temporary container for html2pdf
-            const container = document.createElement('div');
-            container.innerHTML = html;
-            container.style.width = '800px';
-            container.style.background = '#fff';
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            document.body.appendChild(container);
+            const PAGE_W = 210, PAGE_H = 297;
+            const ML = 14, MR = 14, MT = 14, MB = 14;
+            const USABLE_W = PAGE_W - ML - MR;
+            const TEAL = [43, 103, 119];
+            const BLACK = [26, 26, 26];
+            const GRAY = [100, 100, 100];
+            const LEFT_W = 95, RIGHT_X = ML + LEFT_W + 5, RIGHT_W = USABLE_W - LEFT_W - 5;
+
+            let y = MT;
+
+            function checkPage(needed) {
+                if (y + needed > PAGE_H - MB) {
+                    doc.addPage();
+                    y = MT;
+                    return true;
+                }
+                return false;
+            }
+
+            function setFont(style, size, color) {
+                doc.setFont('helvetica', style);
+                doc.setFontSize(size);
+                doc.setTextColor(...(color || BLACK));
+            }
+
+            function wrapText(text, maxW, x, fontSize, style, color, leading) {
+                setFont(style || 'normal', fontSize, color);
+                const lines = doc.splitTextToSize(text, maxW);
+                const lineH = leading || fontSize * 0.4;
+                for (const line of lines) {
+                    checkPage(lineH);
+                    doc.text(line, x, y);
+                    y += lineH;
+                }
+                return lines.length;
+            }
+
+            // === HEADER ===
+            setFont('bold', 22, BLACK);
+            doc.text(cv.name, ML, y);
+            y += 8;
+
+            setFont('normal', 11, TEAL);
+            doc.text(cv.subtitle, ML, y);
+            y += 6;
+
+            // Summary
+            if (cv.summary) {
+                wrapText(cv.summary, USABLE_W, ML, 8.5, 'normal', BLACK, 3.5);
+                y += 2;
+            }
+
+            // === CONTACT BAR ===
+            y += 2;
+            doc.setFillColor(240, 240, 240);
+            doc.rect(ML, y - 3, USABLE_W, 8, 'F');
+            doc.setDrawColor(210, 210, 210);
+            doc.line(ML, y - 3, ML + USABLE_W, y - 3);
+            doc.line(ML, y + 5, ML + USABLE_W, y + 5);
+
+            setFont('normal', 7.5, BLACK);
+            const contactParts = [];
+            if (cv.contact.email) contactParts.push(cv.contact.email);
+            if (cv.contact.phone) contactParts.push(cv.contact.phone);
+            if (cv.contact.location) contactParts.push(cv.contact.location);
+            if (cv.contact.linkedin) contactParts.push(cv.contact.linkedin);
+            const contactStr = contactParts.join('     |     ');
+            doc.text(contactStr, PAGE_W / 2, y + 1.5, { align: 'center' });
+            y += 10;
+
+            // === TWO-COLUMN SECTION ===
+            const colStartY = y;
+            let leftY = y;
+            let rightY = y;
+
+            // --- LEFT COLUMN: WORK EXPERIENCE ---
+            function sectionHeader(text, x, colY, w) {
+                setFont('bold', 12, TEAL);
+                checkPage(10);
+                doc.text(text, x, colY);
+                colY += 1.5;
+                doc.setDrawColor(...TEAL);
+                doc.setLineWidth(0.5);
+                doc.line(x, colY, x + w, colY);
+                colY += 5;
+                return colY;
+            }
+
+            leftY = sectionHeader('WORK EXPERIENCE', ML, leftY, LEFT_W);
+
+            for (const job of cv.workExperience) {
+                // Title
+                setFont('bold', 10, BLACK);
+                doc.text(job.title, ML, leftY);
+                leftY += 4;
+
+                // Company
+                setFont('normal', 9, BLACK);
+                doc.text(job.company, ML, leftY);
+                leftY += 4;
+
+                // Dates + Location
+                if (job.dates) {
+                    setFont('italic', 8, GRAY);
+                    doc.text(job.dates, ML, leftY);
+                    if (job.location) {
+                        doc.text(job.location, ML + LEFT_W, leftY, { align: 'right' });
+                    }
+                    leftY += 3.5;
+                }
+
+                // Promotion
+                if (job.promotion) {
+                    setFont('italic', 7.5, GRAY);
+                    doc.text(job.promotion, ML, leftY);
+                    leftY += 3.5;
+                }
+
+                leftY += 1;
+
+                // Bullets
+                for (const bullet of job.bullets) {
+                    setFont('normal', 8, BLACK);
+                    const lines = doc.splitTextToSize(bullet, LEFT_W - 6);
+                    // Bullet marker (drawn circle — jsPDF can't render Unicode ◦)
+                    doc.setDrawColor(...TEAL);
+                    doc.circle(ML + 2, leftY - 1, 0.6, 'S');
+                    setFont('normal', 8, BLACK);
+                    for (let i = 0; i < lines.length; i++) {
+                        if (leftY > PAGE_H - MB) { doc.addPage(); leftY = MT; }
+                        doc.text(lines[i], ML + 5, leftY);
+                        leftY += 3.3;
+                    }
+                    leftY += 1;
+                }
+                leftY += 2;
+            }
+
+            // --- LEFT COLUMN: EDUCATION ---
+            leftY += 2;
+            leftY = sectionHeader('EDUCATION', ML, leftY, LEFT_W);
+
+            for (const edu of cv.education) {
+                setFont('bold', 10, BLACK);
+                const degreeLines = doc.splitTextToSize(edu.degree, LEFT_W);
+                for (const dl of degreeLines) {
+                    doc.text(dl, ML, leftY);
+                    leftY += 4;
+                }
+
+                if (edu.school) {
+                    setFont('normal', 9, BLACK);
+                    doc.text(edu.school, ML, leftY);
+                    leftY += 4;
+                }
+
+                if (edu.dates) {
+                    setFont('italic', 8, GRAY);
+                    doc.text(edu.dates, ML, leftY);
+                    if (edu.location) {
+                        doc.text(edu.location, ML + LEFT_W, leftY, { align: 'right' });
+                    }
+                    leftY += 4;
+                }
+
+                for (const detail of edu.details) {
+                    setFont('normal', 7.5, BLACK);
+                    const dLines = doc.splitTextToSize(detail, LEFT_W - 5);
+                    doc.setDrawColor(...TEAL);
+                    doc.circle(ML + 2, leftY - 1, 0.6, 'S');
+                    setFont('normal', 7.5, BLACK);
+                    for (const dl of dLines) {
+                        if (leftY > PAGE_H - MB) { doc.addPage(); leftY = MT; }
+                        doc.text(dl, ML + 5, leftY);
+                        leftY += 3;
+                    }
+                    leftY += 1;
+                }
+                leftY += 2;
+            }
+
+            // --- RIGHT COLUMN: SKILLS ---
+            rightY = sectionHeader('SKILLS', RIGHT_X, rightY, RIGHT_W);
+
+            for (const skill of cv.skills) {
+                setFont('bold', 9, BLACK);
+                doc.text(skill.category, RIGHT_X, rightY);
+                rightY += 3.5;
+
+                setFont('normal', 8, BLACK);
+                const sLines = doc.splitTextToSize(skill.items, RIGHT_W);
+                for (const sl of sLines) {
+                    doc.text(sl, RIGHT_X, rightY);
+                    rightY += 3.3;
+                }
+                rightY += 3;
+            }
+
+            // --- RIGHT COLUMN: TECHNICAL PORTFOLIO ---
+            if (cv.technicalPortfolio.length > 0) {
+                rightY += 2;
+                rightY = sectionHeader('TECHNICAL PORTFOLIO', RIGHT_X, rightY, RIGHT_W);
+
+                for (const p of cv.technicalPortfolio) {
+                    setFont('bold', 9, BLACK);
+                    doc.text(p.title, RIGHT_X, rightY);
+                    rightY += 3.5;
+
+                    if (p.description) {
+                        setFont('normal', 8, BLACK);
+                        const pLines = doc.splitTextToSize(p.description, RIGHT_W - 5);
+                        doc.setDrawColor(...TEAL);
+                        doc.circle(RIGHT_X + 2, rightY - 1, 0.6, 'S');
+                        setFont('normal', 8, BLACK);
+                        for (const pl of pLines) {
+                            doc.text(pl, RIGHT_X + 5, rightY);
+                            rightY += 3.3;
+                        }
+                        rightY += 2;
+                    }
+                }
+            }
+
+            // --- RIGHT COLUMN: CERTIFICATIONS ---
+            if (cv.certifications.length > 0) {
+                rightY += 2;
+                rightY = sectionHeader('CERTIFICATIONS', RIGHT_X, rightY, RIGHT_W);
+
+                for (const cert of cv.certifications) {
+                    setFont('normal', 8.5, BLACK);
+                    doc.text(cert, RIGHT_X, rightY);
+                    rightY += 4.5;
+                }
+            }
 
             const filename = `CV_${currentJobAnalysis.jobInfo.company || 'Modified'}_${new Date().toISOString().split('T')[0]}.pdf`;
-
-            html2pdf().set({
-                margin: [10, 12, 10, 12],
-                filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-            }).from(container).save().then(() => {
-                document.body.removeChild(container);
-            }).catch(err => {
-                document.body.removeChild(container);
-                showError('Error generating PDF: ' + err.message);
-            });
-
+            doc.save(filename);
             addToPipeline();
         }
 
